@@ -1,4 +1,5 @@
 {
   "name": "Status Card",
-  "content_in_root": true
+  "filename": "status-card.js",
+  "render_readme": true
 }
