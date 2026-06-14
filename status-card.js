@@ -586,8 +586,8 @@ class StatusCardEditor extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
     this._config = normalizeConfig();
-    this._boundOnChange = this._onInput.bind(this);
-    this._boundOnClick = this._onInput.bind(this);
+    this._boundOnChange = this._onChange.bind(this);
+    this._boundOnClick = this._onClick.bind(this);
     this._boundOnEntityChanged = this._onEntityChanged.bind(this);
   }
 
@@ -628,13 +628,9 @@ class StatusCardEditor extends HTMLElement {
     );
   }
 
-  _onInput(event) {
+  _onClick(event) {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    if (target.tagName === 'HA-ENTITY-PICKER') {
       return;
     }
 
@@ -645,13 +641,15 @@ class StatusCardEditor extends HTMLElement {
       this._render();
       return;
     }
+  }
 
-    if (action === 'remove-rule') {
-      const index = Number(target.dataset.ruleIndex);
-      const rules = [...(this._config.rules ?? [])];
-      rules.splice(index, 1);
-      this._emit({ ...this._config, rules });
-      this._render();
+  _onChange(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target.tagName === 'HA-ENTITY-PICKER') {
       return;
     }
 
@@ -682,9 +680,18 @@ class StatusCardEditor extends HTMLElement {
 
     this._emit(nextConfig);
 
-    if (target instanceof HTMLSelectElement) {
+    if (this._requiresRender(path)) {
       this._render();
     }
+  }
+
+  _requiresRender(path) {
+    return (
+      path === 'variant' ||
+      path === 'tap_action.action' ||
+      path === 'hold_action.action' ||
+      /^rules\.\d+\.type$/.test(path)
+    );
   }
 
   _onEntityChanged(event) {
