@@ -588,10 +588,12 @@ class StatusCardEditor extends HTMLElement {
     this._config = normalizeConfig();
     this._boundOnChange = this._onInput.bind(this);
     this._boundOnClick = this._onInput.bind(this);
+    this._boundOnEntityChanged = this._onEntityChanged.bind(this);
   }
 
   set hass(value) {
     this._hass = value;
+    this._updateEntityPicker();
   }
 
   set config(value) {
@@ -610,6 +612,9 @@ class StatusCardEditor extends HTMLElement {
   disconnectedCallback() {
     this.shadowRoot?.removeEventListener('change', this._boundOnChange);
     this.shadowRoot?.removeEventListener('click', this._boundOnClick);
+    this.shadowRoot
+      ?.querySelector('ha-entity-picker')
+      ?.removeEventListener('value-changed', this._boundOnEntityChanged);
   }
 
   _emit(nextConfig) {
@@ -626,6 +631,10 @@ class StatusCardEditor extends HTMLElement {
   _onInput(event) {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target.tagName === 'HA-ENTITY-PICKER') {
       return;
     }
 
@@ -676,6 +685,28 @@ class StatusCardEditor extends HTMLElement {
     if (target instanceof HTMLSelectElement) {
       this._render();
     }
+  }
+
+  _onEntityChanged(event) {
+    event.stopPropagation?.();
+    this._emit({
+      ...this._config,
+      entity: event.detail?.value ?? ''
+    });
+  }
+
+  _updateEntityPicker() {
+    const picker = this.shadowRoot?.querySelector('ha-entity-picker');
+    if (!picker) {
+      return;
+    }
+
+    picker.hass = this._hass;
+    picker.value = this._config.entity ?? '';
+    picker.label = 'Entity';
+    picker.placeholder = 'Search entities';
+    picker.allowCustomEntity = true;
+    picker.showEntityId = true;
   }
 
   _render() {
@@ -748,6 +779,11 @@ class StatusCardEditor extends HTMLElement {
           min-height: 110px;
           resize: vertical;
         }
+        ha-entity-picker {
+          display: block;
+          width: 100%;
+          align-self: end;
+        }
         .toolbar,
         .rule-actions {
           display: flex;
@@ -775,10 +811,7 @@ class StatusCardEditor extends HTMLElement {
                 ])}
               </select>
             </label>
-            <label>
-              <span>Entity</span>
-              <input data-path="entity" type="text" value="${escapeHtml(config.entity ?? '')}" placeholder="sensor.temp_nangeln_temperature">
-            </label>
+            <ha-entity-picker data-path="entity"></ha-entity-picker>
             <label>
               <span>Label</span>
               <input data-path="label" type="text" value="${escapeHtml(config.label ?? '')}" placeholder="อุณหภูมิ">
@@ -882,6 +915,11 @@ class StatusCardEditor extends HTMLElement {
     this.shadowRoot.removeEventListener('click', this._boundOnClick);
     this.shadowRoot.addEventListener('change', this._boundOnChange);
     this.shadowRoot.addEventListener('click', this._boundOnClick);
+
+    const entityPicker = this.shadowRoot.querySelector('ha-entity-picker');
+    entityPicker?.removeEventListener('value-changed', this._boundOnEntityChanged);
+    entityPicker?.addEventListener('value-changed', this._boundOnEntityChanged);
+    this._updateEntityPicker();
   }
 
   static getStubConfig() {
