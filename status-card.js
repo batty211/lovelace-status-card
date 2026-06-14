@@ -108,10 +108,18 @@ function toBoolean(value, fallback = false) {
   return Boolean(value);
 }
 
+function getCardType(variant) {
+  return variant === 'chip'
+    ? 'custom:status-chip-card'
+    : 'custom:status-metric-card';
+}
+
 function normalizeConfig(input = {}) {
-  const variant = input.variant || (input.type === 'status-chip-card' ? 'chip' : 'metric');
+  const inputType = String(input.type ?? '').replace(/^custom:/, '');
+  const variant = input.variant || (inputType === 'status-chip-card' ? 'chip' : 'metric');
   return {
     ...input,
+    type: getCardType(variant),
     variant,
     label: input.label ?? input.name ?? '',
     entity: input.entity ?? '',
@@ -347,7 +355,7 @@ function getCardDefaults(variant) {
   return DEFAULTS[variant] ?? DEFAULTS.metric;
 }
 
-return { isUnavailable, getFriendlyName, getSourceValue, getPath, toNumber, toBoolean, normalizeConfig, matchRule, evaluateRules, resolvePresentation, runAdvancedTemplate, getCardDefaults };
+return { isUnavailable, getFriendlyName, getSourceValue, getPath, toNumber, toBoolean, getCardType, normalizeConfig, matchRule, evaluateRules, resolvePresentation, runAdvancedTemplate, getCardDefaults };
 })();
 
 (() => {
@@ -578,7 +586,8 @@ class StatusCardEditor extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
     this._config = normalizeConfig();
-    this._boundOnInput = this._onInput.bind(this);
+    this._boundOnChange = this._onInput.bind(this);
+    this._boundOnClick = this._onInput.bind(this);
   }
 
   set hass(value) {
@@ -586,6 +595,10 @@ class StatusCardEditor extends HTMLElement {
   }
 
   set config(value) {
+    this.setConfig(value);
+  }
+
+  setConfig(value) {
     this._config = normalizeConfig(value);
     this._render();
   }
@@ -595,8 +608,8 @@ class StatusCardEditor extends HTMLElement {
   }
 
   disconnectedCallback() {
-    this.shadowRoot?.removeEventListener('input', this._boundOnInput);
-    this.shadowRoot?.removeEventListener('change', this._boundOnInput);
+    this.shadowRoot?.removeEventListener('change', this._boundOnChange);
+    this.shadowRoot?.removeEventListener('click', this._boundOnClick);
   }
 
   _emit(nextConfig) {
@@ -608,7 +621,6 @@ class StatusCardEditor extends HTMLElement {
         composed: true
       })
     );
-    this._render();
   }
 
   _onInput(event) {
@@ -621,6 +633,7 @@ class StatusCardEditor extends HTMLElement {
     if (action === 'add-rule') {
       const rules = [...(this._config.rules ?? []), { type: 'state', value: '' }];
       this._emit({ ...this._config, rules });
+      this._render();
       return;
     }
 
@@ -629,6 +642,7 @@ class StatusCardEditor extends HTMLElement {
       const rules = [...(this._config.rules ?? [])];
       rules.splice(index, 1);
       this._emit({ ...this._config, rules });
+      this._render();
       return;
     }
 
@@ -658,6 +672,10 @@ class StatusCardEditor extends HTMLElement {
     }
 
     this._emit(nextConfig);
+
+    if (target instanceof HTMLSelectElement) {
+      this._render();
+    }
   }
 
   _render() {
@@ -860,10 +878,10 @@ class StatusCardEditor extends HTMLElement {
       </div>
     `;
 
-    this.shadowRoot.removeEventListener('input', this._boundOnInput);
-    this.shadowRoot.removeEventListener('change', this._boundOnInput);
-    this.shadowRoot.addEventListener('input', this._boundOnInput);
-    this.shadowRoot.addEventListener('change', this._boundOnInput);
+    this.shadowRoot.removeEventListener('change', this._boundOnChange);
+    this.shadowRoot.removeEventListener('click', this._boundOnClick);
+    this.shadowRoot.addEventListener('change', this._boundOnChange);
+    this.shadowRoot.addEventListener('click', this._boundOnClick);
   }
 
   static getStubConfig() {
